@@ -43,6 +43,9 @@ app.MapPost("/products", async (ProductCreateRequest request, DaprClient daprCli
 
 app.MapGet("/products", () => products);
 
+// Root info/health
+app.MapGet("/", () => Results.Ok(new { service="productservice", routes=new[]{"/products"}, count=products.Count }));
+
 
 app.Run();
 

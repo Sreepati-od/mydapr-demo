@@ -41,6 +41,9 @@ app.MapPost("/orders", (OrderCreateRequest request) =>
 
 app.MapGet("/orders", () => orders);
 
+// Root info/health
+app.MapGet("/", () => Results.Ok(new { service="orderservice", routes=new[]{"/orders"}, count=orders.Count }));
+
 
 app.MapControllers();
 
