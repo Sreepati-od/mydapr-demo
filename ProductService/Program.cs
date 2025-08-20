@@ -25,6 +25,8 @@ var app = builder.Build();
 
 app.UseCloudEvents();
 app.UseCors("web");
+app.MapMethods("/products", new[]{"OPTIONS"}, () => Results.Ok())
+    .WithName("ProductsPreflight");
 app.MapSubscribeHandler();
 
 // Simple in-memory list of products

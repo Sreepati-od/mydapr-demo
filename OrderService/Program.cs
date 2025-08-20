@@ -29,6 +29,8 @@ var app = builder.Build();
 app.UseCloudEvents();
 app.UseCors("web");
 app.MapSubscribeHandler();
+app.MapMethods("/orders", new[]{"OPTIONS"}, () => Results.Ok())
+    .WithName("OrdersPreflight");
 
 var orders = ProgramOrdersAccessor.Orders;
 
