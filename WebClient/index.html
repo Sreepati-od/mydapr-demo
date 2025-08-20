@@ -9,8 +9,11 @@
     <div id="root"></div>
     <script>
       window.runtimeConfig = {};
+      // Load config first, then load the app entry
+      fetch('/config.json')
+        .then(r => r.ok ? r.json() : {})
+        .then(cfg => { window.runtimeConfig = cfg || {}; import('/src/main.tsx'); })
+        .catch(()=> import('/src/main.tsx'));
     </script>
-    <script src="/config.json" fetchpriority="low" onload="try{fetch('/config.json').then(r=>r.json()).then(c=>window.runtimeConfig=c)}catch(e){}"></script>
-    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
