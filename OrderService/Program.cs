@@ -12,10 +12,22 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
 });
+// CORS (allow webclient origin)
+var allowedOrigins = Environment.GetEnvironmentVariable("ALLOWED_ORIGINS") ?? "*";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("web", p =>
+    {
+        if (allowedOrigins == "*") p.AllowAnyOrigin();
+        else p.WithOrigins(allowedOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        p.AllowAnyHeader().AllowAnyMethod();
+    });
+});
 
 var app = builder.Build();
 
 app.UseCloudEvents();
+app.UseCors("web");
 app.MapSubscribeHandler();
 
 var orders = ProgramOrdersAccessor.Orders;

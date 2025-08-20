@@ -6,10 +6,25 @@ var builder = WebApplication.CreateBuilder(args);
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddDaprClient();
+// CORS (allow webclient)
+var allowedOrigins = Environment.GetEnvironmentVariable("ALLOWED_ORIGINS")
+    ?? "*"; // demo default
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("web", policy =>
+    {
+        if (allowedOrigins == "*")
+            policy.AllowAnyOrigin();
+        else
+            policy.WithOrigins(allowedOrigins.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        policy.AllowAnyHeader().AllowAnyMethod();
+    });
+});
 
 var app = builder.Build();
 
 app.UseCloudEvents();
+app.UseCors("web");
 app.MapSubscribeHandler();
 
 // Simple in-memory list of products
