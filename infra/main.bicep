@@ -3,53 +3,19 @@ param location string = resourceGroup().location
 @description('Environment name (injected by azd)')
 param azdEnvName string
 
-// Images handled by azd separately; no direct reference needed here.
+@description('Product service container image')
+param productserviceImage string
+@description('Order service container image')
+param orderserviceImage string
+@description('Web client container image')
+param webclientImage string
 
-@description('Redis SKU (Basic, Standard, Premium)')
-param redisSku string = 'Basic'
-@description('Redis Capacity (0 = C0)')
-param redisCapacity int = 0
+var prefix = toLower(replace(azdEnvName,'_','-'))
+var envName = '${prefix}-cae'
+var acrRaw = replace('${prefix}acr','-','')
+var acrName = length(acrRaw) < 5 ? '${acrRaw}00000' : substring(acrRaw,0, min(length(acrRaw),50))
 
-var namePrefix = toLower(replace(azdEnvName, '_', '-'))
-var acrName = take(replace('${namePrefix}acr','-',''), 50)
-var workspaceName = '${namePrefix}-law'
-var envName = '${namePrefix}-cae'
-var redisName = replace('${namePrefix}-redis','_','-')
-
-resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
-  name: workspaceName
-  location: location
-  properties: {
-    retentionInDays: 30
-    features: {
-      searchVersion: 2
-    }
-    sku: {
-      name: 'PerGB2018'
-    }
-  }
-  tags: {
-    'azd-env-name': azdEnvName
-  }
-}
-
-resource managedEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
-  name: envName
-  location: location
-  properties: {
-    appLogsConfiguration: {
-      destination: 'log-analytics'
-      logAnalyticsConfiguration: {
-        customerId: logAnalytics.properties.customerId
-        sharedKey: listKeys(logAnalytics.id, '2022-10-01').primarySharedKey
-      }
-    }
-  }
-  tags: {
-    'azd-env-name': azdEnvName
-  }
-}
-
+// ACR
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   name: acrName
   location: location
@@ -64,55 +30,164 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
   }
 }
 
-resource redis 'Microsoft.Cache/redis@2023-08-01' = {
-  name: redisName
+// Managed Environment (no log analytics to simplify)
+resource managedEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
+  name: envName
   location: location
-  sku: {
-    name: redisSku
-    family: 'C'
-    capacity: redisCapacity
+  properties: {}
+  tags: {
+    'azd-env-name': azdEnvName
   }
+}
+
+
+// Dapr component
+resource pubsub 'Microsoft.App/managedEnvironments/daprComponents@2024-03-01' = {
+  name: 'messagebus'
+  parent: managedEnv
   properties: {
-    enableNonSslPort: false
+  componentType: 'pubsub.in-memory'
+    version: 'v1'
+  metadata: []
+    scopes: [
+      'productservice'
+      'orderservice'
+    ]
+  secrets: []
+  }
+}
+
+// Product Container App
+resource productApp 'Microsoft.App/containerApps@2024-03-01' = {
+  name: 'productservice'
+  location: location
+  properties: {
+    environmentId: managedEnv.id
+    configuration: {
+      ingress: {
+        external: true
+        targetPort: 8080
+      }
+      dapr: {
+        appId: 'productservice'
+        appPort: 8080
+        enabled: true
+      }
+      secrets: [
+        // ACR credentials looked up dynamically at deploy time (warnings ignored for demo)
+        {
+          name: 'acr-password'
+          value: acr.listCredentials().passwords[0].value
+        }
+      ]
+      registries: [
+        {
+          server: acr.properties.loginServer
+          username: acr.listCredentials().username
+          passwordSecretRef: 'acr-password'
+        }
+      ]
+    }
+    template: {
+      containers: [
+        {
+          name: 'productservice'
+          image: productserviceImage
+        }
+      ]
+    }
   }
   tags: {
     'azd-env-name': azdEnvName
   }
 }
 
-resource pubsub 'Microsoft.App/managedEnvironments/daprComponents@2024-03-01' = {
-  name: 'messagebus'
-  parent: managedEnv
+// Order Container App
+resource orderApp 'Microsoft.App/containerApps@2024-03-01' = {
+  name: 'orderservice'
+  location: location
   properties: {
-    componentType: 'pubsub.redis'
-    version: 'v1'
-    metadata: [
-      {
-        name: 'redisHost'
-        value: '${redis.name}.redis.cache.windows.net:6380'
+    environmentId: managedEnv.id
+    configuration: {
+      ingress: {
+        external: true
+        targetPort: 8080
       }
-      {
-        name: 'redisPassword'
-        secretRef: 'redisPassword'
+      dapr: {
+        appId: 'orderservice'
+        appPort: 8080
+        enabled: true
       }
-      {
-        name: 'enableTLS'
-        value: 'true'
-      }
-    ]
-    scopes: [
-      'productservice'
-      'orderservice'
-    ]
-    secrets: [
-      {
-  name: 'redisPassword'
-  // NOTE: listKeys used due to lack of direct reference; acceptable for demo
-  value: listKeys(redis.id, '2023-08-01').primaryKey
-      }
-    ]
+      secrets: [
+        {
+          name: 'acr-password'
+          value: acr.listCredentials().passwords[0].value
+        }
+      ]
+      registries: [
+        {
+          server: acr.properties.loginServer
+          username: acr.listCredentials().username
+          passwordSecretRef: 'acr-password'
+        }
+      ]
+    }
+    template: {
+      containers: [
+        {
+          name: 'orderservice'
+          image: orderserviceImage
+        }
+      ]
+    }
+  }
+  tags: {
+    'azd-env-name': azdEnvName
   }
 }
 
+// Web Client Container App (static front-end)
+resource webclientApp 'Microsoft.App/containerApps@2024-03-01' = {
+  name: 'webclient'
+  location: location
+  properties: {
+    environmentId: managedEnv.id
+    configuration: {
+      ingress: {
+        external: true
+        targetPort: 80
+      }
+      registries: [
+        {
+          server: acr.properties.loginServer
+          username: acr.listCredentials().username
+          passwordSecretRef: 'acr-password'
+        }
+      ]
+      secrets: [
+        {
+          name: 'acr-password'
+          value: acr.listCredentials().passwords[0].value
+        }
+      ]
+    }
+    template: {
+      containers: [
+        {
+          name: 'webclient'
+          image: webclientImage
+          // Optionally add env vars if we later implement runtime substitution
+        }
+      ]
+    }
+  }
+  tags: {
+    'azd-env-name': azdEnvName
+  }
+}
+
+output productserviceUrl string = productApp.properties.configuration.ingress.fqdn
+output orderserviceUrl string = orderApp.properties.configuration.ingress.fqdn
+output webclientUrl string = webclientApp.properties.configuration.ingress.fqdn
 output containerRegistry string = acr.properties.loginServer
 output daprPubSubName string = pubsub.name

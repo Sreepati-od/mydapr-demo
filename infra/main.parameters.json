@@ -4,6 +4,7 @@
   "parameters": {
     "azdEnvName": { "value": "dev" },
     "productserviceImage": { "value": "placeholder" },
-    "orderserviceImage": { "value": "placeholder" }
+  "orderserviceImage": { "value": "placeholder" },
+  "webclientImage": { "value": "placeholder" }
   }
 }

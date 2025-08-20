@@ -1,12 +1,13 @@
 # Dapr Pub/Sub Demo (.NET 8)
 
-This demo shows two containerized .NET microservices (ProductService and OrderService) communicating via Dapr pub/sub using a Redis broker.
+This demo shows two containerized .NET microservices (ProductService and OrderService) communicating via Dapr pub/sub (in Azure deployment currently using the in-memory component; locally using Redis). A lightweight React/Vite WebClient provides a simple UI.
 
 Note: Swagger/OpenAPI middleware was intentionally removed to keep the sample minimal and fast. To re-enable, add back `AddEndpointsApiExplorer()` and `AddSwaggerGen()` in each `Program.cs` and call `app.UseSwagger(); app.UseSwaggerUI();` in Development.
 
 ## Services
 - ProductService: Publishes `product.created` events when a product is created (POST /products)
 - OrderService: Subscribes to `product.created` events and auto-creates an order.
+- WebClient: React UI to create products and view orders.
 
 ## Prerequisites
 - Docker & Docker Compose
@@ -86,13 +87,15 @@ azd auth login
 azd env new dev --location eastus
 azd up
 ```
-This provisions: Resource Group, Log Analytics, Container Apps Environment, ACR, Azure Cache for Redis, Dapr pub/sub component, and deploys both services.
+This provisions: Resource Group, Container Apps Environment, ACR, Dapr in-memory pub/sub component, and deploys all three services. (Redis removed for now to simplify; can be reintroduced via Bicep later.)
 
 ### GitHub Actions Deploy
 The workflow `.github/workflows/deploy.yml` deploys on pushes to `main`.
 
 ### Accessing Services (after deploy)
-`azd show env` or check workflow logs for `productserviceUrl` and `orderserviceUrl`.
+`azd show env` or check workflow logs for `webclientUrl`, `productserviceUrl`, and `orderserviceUrl`.
+
+Open the WebClient URL in a browser, create a product, then watch the Orders list populate after the pub/sub event.
 
 Create a product (replace PRODUCT_URL):
 ```
@@ -105,6 +108,6 @@ curl https://<ORDER_URL>/orders
 
 ### Notes
 - ACR admin user enabled for simplicity; for production switch to managed identity + ACR Pull role.
-- Dapr pub/sub component uses Redis with TLS (port 6380).
+- Dapr pub/sub component uses in-memory provider in Azure (stateless). For production, switch to Redis or another durable broker.
 - Images are tagged per azd environment and pushed automatically.
 
