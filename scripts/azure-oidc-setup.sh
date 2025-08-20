@@ -93,7 +93,17 @@ SUBJECT="repo:${REPO_OWNER}/${REPO_NAME}:ref:${BRANCH_REF}"
 echo "[INFO] Ensuring federated credential ($FED_NAME -> $SUBJECT) exists"
 EXISTS=$(az ad app federated-credential list --id "$CLIENT_ID" --query "[?name=='$FED_NAME'] | length(@)" -o tsv)
 if [[ "$EXISTS" == "0" ]]; then
-  az ad app federated-credential create --id "$CLIENT_ID" --parameters "{\n  \"name\": \"$FED_NAME\",\n  \"issuer\": \"https://token.actions.githubusercontent.com\",\n  \"subject\": \"$SUBJECT\",\n  \"audiences\": [\"api://AzureADTokenExchange\"]\n}" >/dev/null
+  TMP_JSON=$(mktemp)
+  cat > "$TMP_JSON" <<JSON
+{
+  "name": "$FED_NAME",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "$SUBJECT",
+  "audiences": ["api://AzureADTokenExchange"]
+}
+JSON
+  az ad app federated-credential create --id "$CLIENT_ID" --parameters @"$TMP_JSON" >/dev/null
+  rm -f "$TMP_JSON"
   echo "[INFO] Federated credential created"
 else
   echo "[INFO] Federated credential already present"
