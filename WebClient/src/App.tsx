@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 
 interface Product { id: string; name: string; price: number; }
-interface Order { id: string; productId: string; createdAt: string; }
+interface Order { id: string; productId: string; createdUtc: string; }
 
 // Resolve API bases: prefer build-time VITE_*, then runtime injected config, fallback to localhost
 const runtimeCfg: any = (window as any).runtimeConfig || {};
@@ -16,17 +16,27 @@ export default function App() {
   const [price, setPrice] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<{productsOk:boolean;ordersOk:boolean}>({productsOk:false,ordersOk:false});
 
   async function refresh() {
     try {
-      const [p,o] = await Promise.all([
-        axios.get<Product[]>(`${apiBaseProducts}/products`),
-        axios.get<Order[]>(`${apiBaseOrders}/orders`)
+      const [pResp,oResp] = await Promise.all([
+        axios.get<Product[]>(`${apiBaseProducts}/products`).catch(e=>{throw {kind:'products',e};}),
+        axios.get<Order[]>(`${apiBaseOrders}/orders`).catch(e=>{throw {kind:'orders',e};})
       ]);
-      setProducts(p.data);
-      setOrders(o.data);
-    } catch (e:any) {
-      setError(e.message);
+      setProducts(pResp.data);
+      setOrders(oResp.data);
+      setStatus({productsOk:true,ordersOk:true});
+    } catch (ex:any) {
+      if (ex && ex.kind === 'products') {
+        setStatus(s=>({...s,productsOk:false}));
+        setError(`Products API error: ${ex.e.message}`);
+      } else if (ex && ex.kind === 'orders') {
+        setStatus(s=>({...s,ordersOk:false}));
+        setError(`Orders API error: ${ex.e.message}`);
+      } else {
+        setError((ex as any)?.message || 'Unknown error');
+      }
     }
   }
 
@@ -48,6 +58,11 @@ export default function App() {
   return (
     <div style={{ fontFamily:'system-ui', margin:'2rem' }}>
       <h1>Dapr Products & Orders</h1>
+      <div style={{marginBottom:'0.75rem', fontSize:'0.9rem'}}>
+        <strong>API Bases:</strong> products: <code>{apiBaseProducts}</code> | orders: <code>{apiBaseOrders}</code><br/>
+        <strong>Status:</strong> products: <span style={{color:status.productsOk?'green':'red'}}>{status.productsOk?'OK':'DOWN'}</span> | orders: <span style={{color:status.ordersOk?'green':'red'}}>{status.ordersOk?'OK':'DOWN'}</span>
+        <button style={{marginLeft:'1rem'}} type="button" onClick={refresh}>Manual Refresh</button>
+      </div>
       <form onSubmit={createProduct} style={{ marginBottom:'1rem' }}>
         <input placeholder="Name" value={name} onChange={e=>setName(e.target.value)} required />{' '}
         <input placeholder="Price" type="number" step="0.01" value={price} onChange={e=>setPrice(e.target.value)} required />{' '}
