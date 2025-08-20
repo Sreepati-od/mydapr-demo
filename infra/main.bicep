@@ -6,6 +6,7 @@ param azdEnvName string
 
 var prefix = toLower(replace(azdEnvName,'_','-'))
 var envName = '${prefix}-cae'
+var logAnalyticsName = '${prefix}-logs'
 // Construct a globally unique ACR name (5-50 lowercase alphanumerics)
 var acrBase = toLower(replace('${prefix}acr','-',''))
 var acrSuffix = toLower(substring(uniqueString(resourceGroup().id, 'acr'),0,6))
@@ -28,10 +29,50 @@ resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
 }
 
 // Managed Environment (no log analytics to simplify)
+// Log Analytics workspace for container app logs
+resource logWorkspace 'Microsoft.OperationalInsights/workspaces@2022-10-01' = {
+  name: logAnalyticsName
+  location: location
+  properties: {
+    retentionInDays: 30
+    features: {
+      searchVersion: 2
+    }
+  }
+  tags: {
+    'azd-env-name': azdEnvName
+  }
+}
+
+// Container Apps Managed Environment (connected to Log Analytics)
 resource managedEnv 'Microsoft.App/managedEnvironments@2024-03-01' = {
   name: envName
   location: location
-  properties: {}
+  properties: {
+    appLogsConfiguration: {
+      destination: 'log-analytics'
+      logAnalyticsConfiguration: {
+        customerId: logWorkspace.properties.customerId
+        sharedKey: listKeys(logWorkspace.id, '2020-08-01').primarySharedKey
+      }
+    }
+  }
+  tags: {
+    'azd-env-name': azdEnvName
+  }
+}
+
+// Application Insights (workspace-based)
+resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
+  name: '${prefix}-appi'
+  location: location
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+    WorkspaceResourceId: logWorkspace.id
+    Flow_Type: 'Redfield'
+    SamplingPercentage: 100
+  }
   tags: {
     'azd-env-name': azdEnvName
   }
@@ -48,6 +89,43 @@ resource serviceBus 'Microsoft.ServiceBus/namespaces@2022-10-01-preview' = {
   }
   tags: {
     'azd-env-name': azdEnvName
+  }
+}
+
+// Diagnostic settings for Service Bus -> Log Analytics
+resource serviceBusDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: 'sb-to-logs'
+  scope: serviceBus
+  properties: {
+    workspaceId: logWorkspace.id
+    logs: [
+      {
+        category: 'OperationalLogs'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+      {
+        category: 'AuditLogs'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+    ]
+    metrics: [
+      {
+        category: 'AllMetrics'
+        enabled: true
+        retentionPolicy: {
+          enabled: false
+          days: 0
+        }
+      }
+    ]
   }
 }
 
@@ -211,3 +289,5 @@ output daprPubSubName string = pubsub.name
 output productserviceUrl string = productApp.properties.configuration.ingress.fqdn
 output orderserviceUrl string = orderApp.properties.configuration.ingress.fqdn
 output webclientUrl string = webclientApp.properties.configuration.ingress.fqdn
+output logAnalyticsWorkspaceId string = logWorkspace.id
+output applicationInsightsConnectionString string = appInsights.properties.ConnectionString
