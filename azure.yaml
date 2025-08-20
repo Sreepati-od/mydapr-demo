@@ -10,6 +10,10 @@ services:
     project: ./OrderService
     language: dotnet
     host: containerapp
+  webclient:
+    project: ./WebClient
+    language: js
+    host: containerapp
 infra:
   provider: bicep
   path: infra
