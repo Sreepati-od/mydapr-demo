@@ -1,0 +1,17 @@
+bin/
+obj/
+**/bin/
+**/obj/
+*.user
+*.swp
+*.DS_Store
+node_modules/
+*.log
+*.tmp
+*.ide
+/.vs/
+/.vscode/
+/.idea/
+TestResults/
+coverage/
+docker-compose.override.yml

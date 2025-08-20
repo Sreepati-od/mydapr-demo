@@ -1,0 +1,15 @@
+name: mydapr-demo
+metadata:
+  template: containerapps-dapr-pubsub
+services:
+  productservice:
+    project: ./ProductService
+    language: dotnet
+    host: containerapp
+  orderservice:
+    project: ./OrderService
+    language: dotnet
+    host: containerapp
+infra:
+  provider: bicep
+  path: infra

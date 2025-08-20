@@ -1,0 +1,63 @@
+services:
+  redis:
+    image: redis:7-alpine
+
+  productservice:
+    build: ./ProductService
+    image: productservice:latest
+    container_name: productservice
+    ports:
+      - '5001:8080'
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+    depends_on:
+      - redis
+
+  productservice-dapr:
+    image: daprio/daprd:1.13.0
+    command: [
+      '/daprd',
+      '--app-id','productservice',
+      '--app-port','8080',
+      '--app-channel-address','productservice',
+      '--dapr-http-port','3500',
+      '--dapr-grpc-port','50001',
+      '--log-level','debug',
+      '--resources-path','/components'
+    ]
+    volumes:
+      - ./components:/components
+    depends_on:
+      - productservice
+    ports:
+      - '3500:3500'
+
+  orderservice:
+    build: ./OrderService
+    image: orderservice:latest
+    container_name: orderservice
+    ports:
+      - '5002:8080'
+    environment:
+      - ASPNETCORE_URLS=http://+:8080
+    depends_on:
+      - redis
+
+  orderservice-dapr:
+    image: daprio/daprd:1.13.0
+    command: [
+      '/daprd',
+      '--app-id','orderservice',
+      '--app-port','8080',
+      '--app-channel-address','orderservice',
+      '--dapr-http-port','3501',
+      '--dapr-grpc-port','50002',
+      '--log-level','debug',
+      '--resources-path','/components'
+    ]
+    volumes:
+      - ./components:/components
+    depends_on:
+      - orderservice
+    ports:
+      - '3501:3501'
