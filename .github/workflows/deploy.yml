@@ -48,3 +48,15 @@ jobs:
 
       - name: Show Endpoints
         run: azd env get-values | grep -E 'productserviceUrl|orderserviceUrl|webclientUrl' || true
+
+      - name: Remote Smoke Test
+        run: |
+          chmod +x tests/remote-smoke.sh
+          PRODUCT_URL=$(azd env get-values | grep productserviceUrl | cut -d'=' -f2 | tr -d '"')
+          ORDER_URL=$(azd env get-values | grep orderserviceUrl | cut -d'=' -f2 | tr -d '"')
+          if [ -z "$PRODUCT_URL" ] || [ -z "$ORDER_URL" ]; then
+            echo "Endpoints not found; skipping smoke test" >&2
+            exit 0
+          fi
+            ./tests/remote-smoke.sh "https://$PRODUCT_URL" "https://$ORDER_URL"
+        continue-on-error: true

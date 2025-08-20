@@ -6,14 +6,21 @@ services:
     project: ./ProductService
     language: dotnet
     host: containerapp
+    docker:
+      # Use the ACR endpoint once set in env (AZURE_CONTAINER_REGISTRY_ENDPOINT)
+      registry: ${AZURE_CONTAINER_REGISTRY_ENDPOINT}
   orderservice:
     project: ./OrderService
     language: dotnet
     host: containerapp
+    docker:
+      registry: ${AZURE_CONTAINER_REGISTRY_ENDPOINT}
   webclient:
     project: ./WebClient
     language: js
     host: containerapp
+    docker:
+      registry: ${AZURE_CONTAINER_REGISTRY_ENDPOINT}
 infra:
   provider: bicep
   path: infra

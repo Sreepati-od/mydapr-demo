@@ -1,6 +1,12 @@
 # Dapr Pub/Sub Demo (.NET 8)
 
-This demo shows two containerized .NET microservices (ProductService and OrderService) communicating via Dapr pub/sub (in Azure deployment currently using the in-memory component; locally using Redis). A lightweight React/Vite WebClient provides a simple UI.
+This demo shows two containerized .NET microservices (ProductService and OrderService) communicating via Dapr pub/sub.
+
+Local: Redis component (for easy inspection / durability in dev).
+
+Azure: Azure Service Bus (Standard) Dapr pub/sub component for durable event delivery (previous in-memory component replaced).
+
+A lightweight React/Vite WebClient provides a simple UI.
 
 Note: Swagger/OpenAPI middleware was intentionally removed to keep the sample minimal and fast. To re-enable, add back `AddEndpointsApiExplorer()` and `AddSwaggerGen()` in each `Program.cs` and call `app.UseSwagger(); app.UseSwaggerUI();` in Development.
 
@@ -87,7 +93,7 @@ azd auth login
 azd env new dev --location eastus
 azd up
 ```
-This provisions: Resource Group, Container Apps Environment, ACR, Dapr in-memory pub/sub component, and deploys all three services. (Redis removed for now to simplify; can be reintroduced via Bicep later.)
+This provisions: Resource Group, Container Apps Environment, ACR, Azure Service Bus namespace + Dapr pub/sub component, and deploys all three services.
 
 ### GitHub Actions Deploy
 The workflow `.github/workflows/deploy.yml` deploys on pushes to `main`.
@@ -106,9 +112,19 @@ List orders (replace ORDER_URL):
 curl https://<ORDER_URL>/orders
 ```
 
+### Remote Smoke Test
+After deployment you can validate end-to-end propagation:
+
+```
+./tests/remote-smoke.sh https://<productservice_fqdn> https://<orderservice_fqdn>
+```
+
+Output should show an order referencing the created product ID within a few polling attempts.
+
 ### Notes
-- ACR admin user enabled for simplicity; for production switch to managed identity + ACR Pull role.
-- Dapr pub/sub component uses in-memory provider in Azure (stateless). For production, switch to Redis or another durable broker.
+- ACR admin user enabled for simplicity; for production prefer managed identity + AcrPull.
+- Azure Service Bus (Standard) selected for durability; you can downgrade to Basic if you only need queues or switch to another broker supported by Dapr.
 - Images are tagged per azd environment and pushed automatically.
+- The GitHub Actions workflow runs `azd up` and (TODO) could run the remote smoke test script as a post-deploy verification.
 
 // trigger deploy
