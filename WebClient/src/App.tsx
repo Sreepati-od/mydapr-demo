@@ -4,8 +4,10 @@ import axios from 'axios';
 interface Product { id: string; name: string; price: number; }
 interface Order { id: string; productId: string; createdAt: string; }
 
-const apiBaseProducts = import.meta.env.VITE_PRODUCTS_URL || 'http://localhost:5001';
-const apiBaseOrders = import.meta.env.VITE_ORDERS_URL || 'http://localhost:5002';
+// Resolve API bases: prefer build-time VITE_*, then runtime injected config, fallback to localhost
+const runtimeCfg: any = (window as any).runtimeConfig || {};
+const apiBaseProducts = import.meta.env.VITE_PRODUCTS_URL || runtimeCfg.productsApiUrl || 'http://localhost:5001';
+const apiBaseOrders = import.meta.env.VITE_ORDERS_URL || runtimeCfg.ordersApiUrl || 'http://localhost:5002';
 
 export default function App() {
   const [products, setProducts] = useState<Product[]>([]);

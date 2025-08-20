@@ -269,6 +269,16 @@ resource webclientApp 'Microsoft.App/containerApps@2024-03-01' = {
         {
           name: 'webclient'
           image: 'nginx:1.27-alpine'
+          env: [
+            {
+              name: 'PRODUCTS_API_URL'
+              value: 'https://${productApp.properties.configuration.ingress.fqdn}'
+            }
+            {
+              name: 'ORDERS_API_URL'
+              value: 'https://${orderApp.properties.configuration.ingress.fqdn}'
+            }
+          ]
         }
       ]
     }
