@@ -12,8 +12,11 @@ param webclientImage string
 
 var prefix = toLower(replace(azdEnvName,'_','-'))
 var envName = '${prefix}-cae'
-var acrRaw = replace('${prefix}acr','-','')
-var acrName = length(acrRaw) < 5 ? '${acrRaw}00000' : substring(acrRaw,0, min(length(acrRaw),50))
+// Construct a globally unique ACR name (5-50 lowercase alphanumerics)
+var acrBase = toLower(replace('${prefix}acr','-',''))
+var acrSuffix = toLower(substring(uniqueString(resourceGroup().id, 'acr'),0,6))
+var acrRaw = '${acrBase}${acrSuffix}'
+var acrName = substring(acrRaw, 0, min(length(acrRaw),50))
 
 // ACR
 resource acr 'Microsoft.ContainerRegistry/registries@2023-07-01' = {
