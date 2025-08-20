@@ -31,12 +31,24 @@ GRANULAR_ROLES=(
 command -v az >/dev/null || { echo "Azure CLI (az) not found" >&2; exit 1; }
 command -v gh >/dev/null || { echo "GitHub CLI (gh) not found" >&2; exit 1; }
 
+# Ensure Azure login
+if ! az account show >/dev/null 2>&1; then
+  echo "[INFO] Not logged into Azure. Starting device login..."
+  az login --use-device-code >/dev/null
+fi
+
+# Ensure GitHub CLI login (repo scope needed for secrets)
+if ! gh auth status -h github.com >/dev/null 2>&1; then
+  echo "[INFO] GitHub CLI not authenticated. Launching interactive login..."
+  gh auth login -h github.com
+fi
+
 if [[ -z "$SUBSCRIPTION_ID" ]]; then
   echo "ERROR: SUBSCRIPTION_ID not set. Export SUBSCRIPTION_ID=<id> then rerun." >&2
   exit 1
 fi
 
-echo "[INFO] Setting subscription..."
+echo "[INFO] Setting subscription $SUBSCRIPTION_ID ..."
 az account set --subscription "$SUBSCRIPTION_ID"
 
 TENANT_ID=$(az account show --query tenantId -o tsv)
