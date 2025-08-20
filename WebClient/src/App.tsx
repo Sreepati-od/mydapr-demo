@@ -4,12 +4,17 @@ import axios from 'axios';
 interface Product { id: string; name: string; price: number; }
 interface Order { id: string; productId: string; createdUtc: string; }
 
-// Resolve API bases: prefer build-time VITE_*, then runtime injected config, fallback to localhost
-const runtimeCfg: any = (window as any).runtimeConfig || {};
-const apiBaseProducts = import.meta.env.VITE_PRODUCTS_URL || runtimeCfg.productsApiUrl || 'http://localhost:5001';
-const apiBaseOrders = import.meta.env.VITE_ORDERS_URL || runtimeCfg.ordersApiUrl || 'http://localhost:5002';
+// Resolve API bases at runtime (after config.json fetch). We read window.runtimeConfig inside component.
+function resolveApiBases(){
+  const cfg: any = (window as any).runtimeConfig || {};
+  return {
+    products: (import.meta as any).env?.VITE_PRODUCTS_URL || cfg.productsApiUrl || 'http://localhost:5001',
+    orders: (import.meta as any).env?.VITE_ORDERS_URL || cfg.ordersApiUrl || 'http://localhost:5002'
+  };
+}
 
 export default function App() {
+  const [apiBases, setApiBases] = useState(()=>resolveApiBases());
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [name, setName] = useState('');
@@ -20,9 +25,12 @@ export default function App() {
 
   async function refresh() {
     try {
+      // Re-resolve bases in case config arrived after initial render
+      const bases = resolveApiBases();
+      setApiBases(bases);
       const [pResp,oResp] = await Promise.all([
-        axios.get<Product[]>(`${apiBaseProducts}/products`).catch(e=>{throw {kind:'products',e};}),
-        axios.get<Order[]>(`${apiBaseOrders}/orders`).catch(e=>{throw {kind:'orders',e};})
+        axios.get<Product[]>(`${bases.products}/products`).catch(e=>{throw {kind:'products',e};}),
+        axios.get<Order[]>(`${bases.orders}/orders`).catch(e=>{throw {kind:'orders',e};})
       ]);
       setProducts(pResp.data);
       setOrders(oResp.data);
@@ -45,7 +53,9 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
-      await axios.post(`${apiBaseProducts}/products`, { name, price: parseFloat(price) });
+      const bases = resolveApiBases();
+      setApiBases(bases);
+      await axios.post(`${bases.products}/products`, { name, price: parseFloat(price) });
       setName(''); setPrice('');
       // allow Dapr event propagation then refresh
       setTimeout(refresh, 600);
@@ -59,7 +69,7 @@ export default function App() {
     <div style={{ fontFamily:'system-ui', margin:'2rem' }}>
       <h1>Dapr Products & Orders</h1>
       <div style={{marginBottom:'0.75rem', fontSize:'0.9rem'}}>
-        <strong>API Bases:</strong> products: <code>{apiBaseProducts}</code> | orders: <code>{apiBaseOrders}</code><br/>
+  <strong>API Bases:</strong> products: <code>{apiBases.products}</code> | orders: <code>{apiBases.orders}</code><br/>
         <strong>Status:</strong> products: <span style={{color:status.productsOk?'green':'red'}}>{status.productsOk?'OK':'DOWN'}</span> | orders: <span style={{color:status.ordersOk?'green':'red'}}>{status.ordersOk?'OK':'DOWN'}</span>
         <button style={{marginLeft:'1rem'}} type="button" onClick={refresh}>Manual Refresh</button>
       </div>

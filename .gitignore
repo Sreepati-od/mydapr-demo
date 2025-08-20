@@ -31,6 +31,8 @@ obj/
 
 ## Node (future UI)
 node_modules/
+WebClient/.npm-cache/
+WebClient/.npm-cache/**/*
 
 ## Azure Dev artifacts
 .azure/

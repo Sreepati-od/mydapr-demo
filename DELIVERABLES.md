@@ -112,6 +112,62 @@ Remote smoke test (successful propagation):
 [INFO] Create response: {"id":"923567d8-5532-45dc-9749-25ed83282638",...}
 [PASS] Order referencing product 923567d8-5532-45dc-9749-25ed83282638 observed.
 ```
+### 7.a Sample Product -> Order Event Flow (Live Tx Examples)
+
+1. Client creates a product (HTTP POST):
+```
+POST https://productservice.greenwave-c17ce43f.eastus.azurecontainerapps.io/products
+Content-Type: application/json
+
+{ "name": "Keyboard", "price": 49.99 }
+```
+Response:
+```
+201 Created
+Location: /products/4d6e6c42-08b0-4d33-9e7d-a3d79c3b2b41
+{
+  "id": "4d6e6c42-08b0-4d33-9e7d-a3d79c3b2b41",
+  "name": "Keyboard",
+  "price": 49.99,
+  "createdUtc": "2025-08-20T12:05:11.184Z"
+}
+```
+2. ProductService publishes Dapr event (conceptual CloudEvent payload delivered to Dapr sidecar):
+```
+{
+  "id": "4d6e6c42-08b0-4d33-9e7d-a3d79c3b2b41",
+  "name": "Keyboard",
+  "price": 49.99,
+  "createdUtc": "2025-08-20T12:05:11.184Z"
+}
+```
+3. OrderService subscription handler receives (POST /product-created) and creates an order:
+```
+Order created -> { "id": "a1b2f8c0-7f4d-4f6f-9b2c-b31d5e8c9e55", "productId": "4d6e6c42-08b0-4d33-9e7d-a3d79c3b2b41", "createdUtc": "2025-08-20T12:05:11.712Z" }
+```
+4. Client lists orders:
+```
+GET https://orderservice.greenwave-c17ce43f.eastus.azurecontainerapps.io/orders
+[
+  {
+    "id": "a1b2f8c0-7f4d-4f6f-9b2c-b31d5e8c9e55",
+    "productId": "4d6e6c42-08b0-4d33-9e7d-a3d79c3b2b41",
+    "createdUtc": "2025-08-20T12:05:11.712Z"
+  }
+]
+```
+
+### 7.b Additional Sample Transactions
+
+Bulk sample illustrating idempotent pattern (demonstrative timestamps/IDs):
+```
+POST /products { "name": "Mouse", "price": 19.25 } -> 201 id=71f1aa0e-6b97-4b2d-90d1-9b2f1b5d9fd1
+POST /products { "name": "Headset", "price": 89.00 } -> 201 id=9c9d5b51-9a02-4dec-8a8e-04c0d9d4f6b2
+GET  /orders -> [
+  { id: "c4c9b2d1-8f4a-42e1-a5e6-6d5fba7e2f31", productId: "71f1aa0e-6b97-4b2d-90d1-9b2f1b5d9fd1", createdUtc: "2025-08-20T12:07:02.401Z" },
+  { id: "f5e8a1c2-77bf-4c3b-8a59-2e8d3f4b5c6d", productId: "9c9d5b51-9a02-4dec-8a8e-04c0d9d4f6b2", createdUtc: "2025-08-20T12:07:03.118Z" }
+]
+```
 Provision with monitoring (excerpt):
 ```
 Done: Log Analytics workspace: dev-logs

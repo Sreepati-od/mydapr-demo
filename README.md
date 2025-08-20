@@ -127,4 +127,11 @@ Output should show an order referencing the created product ID within a few poll
 - Images are tagged per azd environment and pushed automatically.
 - The GitHub Actions workflow runs `azd up` and (TODO) could run the remote smoke test script as a post-deploy verification.
 
+### Export Deliverables to Word (.docx)
+Run the helper script (requires `pandoc` or Docker):
+```
+./scripts/export-deliverables.sh
+```
+Outputs `DELIVERABLES.docx` alongside the markdown.
+
 // trigger deploy
