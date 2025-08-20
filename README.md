@@ -8,8 +8,6 @@ Azure: Azure Service Bus (Standard) Dapr pub/sub component for durable event del
 
 A lightweight React/Vite WebClient provides a simple UI.
 
-Note: Swagger/OpenAPI middleware was intentionally removed to keep the sample minimal and fast. To re-enable, add back `AddEndpointsApiExplorer()` and `AddSwaggerGen()` in each `Program.cs` and call `app.UseSwagger(); app.UseSwaggerUI();` in Development.
-
 ## Services
 - ProductService: Publishes `product.created` events when a product is created (POST /products)
 - OrderService: Subscribes to `product.created` events and auto-creates an order.
