@@ -111,3 +111,4 @@ curl https://<ORDER_URL>/orders
 - Dapr pub/sub component uses in-memory provider in Azure (stateless). For production, switch to Redis or another durable broker.
 - Images are tagged per azd environment and pushed automatically.
 
+// trigger deploy
